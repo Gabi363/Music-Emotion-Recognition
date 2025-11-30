@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 import librosa
 import random
@@ -8,8 +6,9 @@ import pandas as pd
 import seaborn as sns
 from scipy.signal import butter, filtfilt
 import cv2
-
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
+from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift, Shift, Gain
+from sklearn.metrics import (classification_report, accuracy_score, confusion_matrix, mean_squared_error,
+                             mean_absolute_error, r2_score, precision_score, recall_score, f1_score)
 
 def classify_emotion(valence, arousal):
     if valence >= 5 and arousal >= 5:
@@ -34,14 +33,6 @@ def classify_emotion_regression(valence, arousal):
 
 
 def augment_audio(segment, sr, number):
-    # Time Stretch
-    # rate = random.uniform(0.8, 1.2)
-    # stretched = librosa.effects.time_stretch(y=segment, rate=rate)
-    # if len(stretched) >= len(segment):
-    #     stretched = stretched[:len(segment)]
-    # else:
-    #     stretched = np.pad(stretched, (0, len(segment) - len(stretched)))
-    # augmented.append(stretched)
 
     if number % 3 == 0:
         # Pitch Shift
@@ -218,10 +209,13 @@ def show_class_proportions(y):
 
 
 def show_classification_results(y_pred, y_test, label_encoder):
-    print("Accuracy: ", accuracy_score(y_test, y_pred))
+    print(f"Accuracy: {accuracy_score(y_test, y_pred):.3f}")
+    print(f"Precision: {precision_score(y_test, y_pred, average='weighted'):.3f}")
+    print(f"Recall: {recall_score(y_test, y_pred, average='weighted'):.3f}")
+    print(f"F1-score: {f1_score(y_test, y_pred, average='weighted'):.3f}")
     print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
 
-    cm = confusion_matrix(y_test, y_pred)
+    cm = confusion_matrix(y_test, y_pred, normalize='true')
     ax = plt.subplot()
     sns.heatmap(cm, annot=True, cmap='Blues')
     ax.set_xlabel('Predicted labels')
@@ -251,6 +245,46 @@ def plot_trainig_history(history):
 
     plt.tight_layout()
     plt.show()
+
+
+augment = Compose([
+    AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.4),
+    PitchShift(min_semitones=-2, max_semitones=2, p=0.4),
+    Shift(p=0.4),
+    Gain(p=0.4)
+])
+
+def extract_melspectrogram_segments_augment(path, sr=22050, segment_duration=5, augment_prob=0.5):
+    y, _ = librosa.load(path, sr=sr)
+    segment_length = int(sr * segment_duration)
+    segments = []
+
+    for start in range(0, len(y), segment_length):
+        segment = y[start:start+segment_length]
+        if len(segment) < segment_length:
+            break
+
+        if np.random.rand() < augment_prob:
+            segment = augment(samples=segment, sample_rate=sr)
+            mel = librosa.feature.melspectrogram(y=segment, sr=sr, n_mels=128)
+            mel_spec_db = librosa.power_to_db(mel, ref=np.max)
+
+            mel_spec_db -= mel_spec_db.min()
+            mel_spec_db /= mel_spec_db.max()
+            mel_spec_db = np.expand_dims(mel_spec_db, axis=-1)
+
+            segments.append(mel_spec_db)
+
+        mel = librosa.feature.melspectrogram(y=segment, sr=sr, n_mels=128)
+        mel_spec_db = librosa.power_to_db(mel, ref=np.max)
+
+        mel_spec_db -= mel_spec_db.min()
+        mel_spec_db /= mel_spec_db.max()
+        mel_spec_db = np.expand_dims(mel_spec_db, axis=-1)
+
+        segments.append(mel_spec_db)
+    return segments
+
 
 
 def extract_melspectrogram_segments(path, sr=22050, segment_duration=5, n_mels=128, n_fft=2048, hop_length=512):
