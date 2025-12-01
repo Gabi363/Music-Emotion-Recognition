@@ -18,7 +18,7 @@ The project uses a dataset of Turkish music labeled with four emotional categori
 <br>
 Dataset download link: https://doi.org/10.24432/C5JG93 [1].
 <br>
-Conducted experiments where inspired by the article _Music Emotion Recognition with Machine Learning Based on Audio Features_ [2].
+Conducted experiments were inspired by the article _Music Emotion Recognition with Machine Learning Based on Audio Features_ [2].
 
 Citation: <br>
 [1] Er, M. (2019). Turkish Music Emotion [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5JG93
